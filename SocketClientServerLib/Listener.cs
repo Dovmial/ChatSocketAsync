@@ -200,10 +200,10 @@ namespace SocketClientServerLib
             Guid guid = _guidSockets.FirstOrDefault(x => x.Value == client).Key;
 
             using DbGateway db = new();
-            List<UserDTO> users = db.GetAllUser()
+            UserDTO[] users = db.GetAllUser()
                 .Where(x => x.IsOnline == true && x.Guid != guid)
                 .Select(x => new UserDTO(x.Guid, x.Name ?? string.Empty, x.IsOnline))
-                .ToList();
+                .ToArray();
             string usersBase64 = Convert.ToBase64String(JsonSerializer.SerializeToUtf8Bytes(users));
 
             await SendAsync(message with { commandType = Enum_CommandType.LOG_IN, message = $"{usersBase64}" }, client);
@@ -211,17 +211,23 @@ namespace SocketClientServerLib
         }
         private void RemoveConnectionClient(Socket socketUser, Guid guid)
         {
-            //изменение статуса в базе
-            using DbGateway db = new();
-            User user = db.GetUser(guid)!;
-            user.IsOnline = false;
-            user.LastLogin = DateTime.Now;
-            db.Update(user);
-            db.SaveChanges();
+            if (guid != Guid.Empty)
+            {
+                //изменение статуса в базе
+                using DbGateway db = new();
+                User user = db.GetUser(guid)!;
+                user.IsOnline = false;
+                user.LastLogin = DateTime.Now;
+                db.Update(user);
+                db.SaveChanges();
+                
+            }
             
             socketUser.Shutdown(SocketShutdown.Both);
             socketUser.Close();
-            _guidSockets.Remove(guid);
+            if(guid != Guid.Empty)
+                _guidSockets.Remove(guid);
+            
         }
         private MessageRecord CreateResponse(MessageRecord message, Socket userSocket)
             => message.commandType switch

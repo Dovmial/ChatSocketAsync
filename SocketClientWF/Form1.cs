@@ -39,139 +39,42 @@ namespace SocketClientWF
         private void Init()
         {
             _cts = new CancellationTokenSource();
+
+            ResponseServerHandler responseServerHandler = new(
+                inviteAction: (UserDTO user) => Invoke(() => cbClients.Items.Add(user)),
+                logoutAction: (UserDTO? user) =>
+                {
+                    if (user is not null)
+                        Invoke(() => cbClients.Items.Remove(user));
+                },
+                loginAccessAction: (UserDTO[] usersOnline) =>
+                {
+                    if (usersOnline.Any())
+                        Invoke(() => cbClients.Items.AddRange(usersOnline));
+                },
+                registration: async (string guid) =>
+                {
+                    _options.Guid = guid;
+                    OptionsManager opManager = new();
+                    return await opManager.SaveOptions(_options);
+                });
+
             _client = new(
                 Encoding.Unicode,
                 new(WriteMessage, WriteLineMessage, WriteLineError),
+                responseServerHandler,
                 _cts.Token);
-            _client.MessageReceived += OnMessageReceived;
             _rtbSelectedTextPositions = new();
         }
 
-        private async void OnMessageReceived(object? sender, MessageRecevedEventArgs e)
-        {
-            Task task = e.Message.commandType switch
-            {
-                Enum_CommandType.NEW_GUID => RegistrationResponseHandle(e.Message.message),
-                (Enum_CommandType.INFO_FROM_SERVER | Enum_CommandType.LOG_IN) => LoginResponseErrorHandle(e.Message.ToString()),
-                Enum_CommandType.LOG_IN => LoginAccessHandle(e.Message),
-                Enum_CommandType.SEND_TO => SendToHandle(e.Message),
-                Enum_CommandType.INFO_FROM_SERVER | Enum_CommandType.CLIENT_INVITE => ClientInviteHandle(e.Message),
-                Enum_CommandType.INFO_FROM_SERVER | Enum_CommandType.LOG_OUT => ClientLogOutHandle(e.Message),
-                _ => throw new NotImplementedException("Неизвестный тип команды")
-            };
-            await task;
-        }
-
-        #region обработчики сообщений сервера
-        private Task ClientLogOutHandle(MessageRecord message)
-        {
-            WriteLineMessage(message.ToString());
-            if (Guid.TryParse(message.message, out Guid guid) == false)
-                return Task.CompletedTask;
-            UserDTO? user = _client.UserList?.FirstOrDefault(u => u.guid == guid);
-            if (user is not null)
-                Invoke(() => cbClients.Items.Remove(user));
-            return Task.CompletedTask;
-        }
-
-        private Task ClientInviteHandle(MessageRecord message)
-        {
-            string[] parts = message.message.Split((char)29); //name + guid
-            if (Guid.TryParse(parts[1], out Guid guid))
-            {
-                UserDTO user = new(guid, parts[0], true);
-                _client.UserList!.Add(user);
-                Invoke(() => cbClients.Items.Add(user));
-            }
-            else
-                WriteLineError("Unknown user");
-            return Task.CompletedTask;
-        }
-
-        private Task LoginAccessHandle(MessageRecord message)
-        {
-            WriteLineMessage((message with { message = "Authentication success" }).ToString());
-            //список онлайн клиентов
-            ReadOnlySpan<byte> buffer = new(Convert.FromBase64String(message.message));
-            List<UserDTO> usersOnline = JsonSerializer.Deserialize<List<UserDTO>>(buffer)!;
-            foreach (UserDTO user in usersOnline)
-                _client.UserList!.Add(user);
-            if (usersOnline.Any())
-                Invoke(() => cbClients.Items.AddRange(usersOnline.ToArray()));
-            return Task.CompletedTask;
-        }
-
-        private Task LoginResponseErrorHandle(string error)
-        {
-            WriteLineError(error);
-            return Task.CompletedTask;
-        }
-
-        private Task SendToHandle(MessageRecord message)
-        {
-            WriteLineMessage(message.ToString());
-            return Task.CompletedTask;
-        }
-
-        private async Task RegistrationResponseHandle(string guid)
-        {
-            _options.Guid = guid;
-            OptionsManager opManager = new();
-            if (Guid.TryParse(guid, out Guid g))
-                _client.Guid = g;
-            (bool result, string error) = await opManager.SaveOptions(_options);
-            if (result == false)
-            {
-                WriteLineError(error);
-                return;
-            }
-            WriteLineMessage("Registry is successfull");
-        }
-        #endregion
-
-        private async void btnSend_Click(object sender, EventArgs e)
-        {
-            if (_client.IsConnected == false)
-            {
-                WriteLineError("Клиент не подключен к серверу");
-                return;
-            }
-            if (_selectedClient is null)
-            {
-                WriteLineError("Адресат не выбран");
-                return;
-            }
-            try
-            {
-                await _client.SendAsync(new(
-                    DateTime.Now,
-                    _client.Guid,
-                    new List<Guid>() { (Guid)_selectedClient?.guid! },
-                    Enum_CommandType.SEND_TO,
-                    rtbMessage.Text));
-            }
-            catch (SocketException ex)
-            {
-                WriteLineError($"socket: {ex.Message}");
-            }
-            catch (Exception ex)
-            {
-                WriteLineError(ex.Message);
-            }
-        }
+        #region События формы
+        private async void btnSend_Click(object sender, EventArgs e) 
+            => await _client.SendToAsync(_selectedClient, rtbMessage.Text);
         private async void btnConnect_Click(object sender, EventArgs e)
         {
-            if (_client.IsConnected)
-            {
-                WriteLineError("Уже подключен");
+            bool result = await _client.ConnectAsync(_options.ServerIP, _options.ServerPort);
+            if (!result)
                 return;
-            }
-            if (IPEndPoint.TryParse($"{_options.ServerIP}:{_options.ServerPort}", out IPEndPoint? endPoint) == false)
-            {
-                WriteLineError("Некорректный адрес или порт сокета");
-                return;
-            }
-            await _client.ConnectAsync(endPoint!);
             if (_client.UserList!.Any())
             {
                 cbClients.Items.Clear();
@@ -195,15 +98,7 @@ namespace SocketClientWF
             using AuthorizationForm authorizationForm = new(false);
             if (authorizationForm.ShowDialog() is not DialogResult.OK)
                 return;
-
-            WriteLineMessage("try authentification..");
-            await _client.SendAsync(new(
-                DateTime.Now,
-                _client.Guid,
-                null,
-                Enum_CommandType.LOG_IN,
-                $"{authorizationForm.Login}{(char)29}{authorizationForm.Password}{(char)29}{_options.ClientName}"
-                ));
+            await _client.LogIn(authorizationForm.Login, authorizationForm.Password, _options.ClientName);
         }
         private async void tsmiRegistration_Click(object sender, EventArgs e)
         {
@@ -216,14 +111,7 @@ namespace SocketClientWF
             using AuthorizationForm authorizationForm = new(true);
             if (authorizationForm.ShowDialog() is not DialogResult.OK)
                 return;
-            WriteLineMessage("try registration..");
-            await _client.SendAsync(new(
-                 DateTime.Now,
-                _client.Guid,
-                null,
-                Enum_CommandType.REGISTRATION,
-                $"{authorizationForm.Login}{(char)29}{authorizationForm.Password}{(char)29}{_options.ClientName}"
-                ));
+            await _client.Registration(authorizationForm.Login, authorizationForm.Password, _options.ClientName);
         }
         private void optionsToolStripMenuItem_Click(object sender, EventArgs e)
         {
@@ -234,6 +122,7 @@ namespace SocketClientWF
             if (_client.Guid == Guid.Empty && Guid.TryParse(_options.Guid, out Guid guid))
                 _client.Guid = guid;
         }
+        #endregion
 
         #region helpers methods
         private void ShowErrorBox(string error)
