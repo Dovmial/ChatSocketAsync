@@ -4,7 +4,10 @@ using SocketClientServerLib.Helpers;
 using System.Text;
 
 #region check DB
-if (File.Exists(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "database", "SocketChat.db3")) == false)
+//if (File.Exists(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "database", "SocketChat.db3")) == false)
+//{
+
+//}
 {
     using DataStorageLayer.DbGateway gw = new(doMigrate: true);
 }

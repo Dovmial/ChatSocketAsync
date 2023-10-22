@@ -1,5 +1,4 @@
 ﻿
-
 using SocketClientServerLib.DTOs;
 using SocketClientServerLib.Extensions;
 using SocketClientServerLib.Helpers;
@@ -8,7 +7,6 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
-using System.Xml.Linq;
 
 namespace SocketClientServerLib
 {
@@ -142,11 +140,16 @@ namespace SocketClientServerLib
             }
             try
             {
+                Guid receiver = (Guid)selectedClient?.guid!;
+                Enum_CommandType command = receiver == ServerGuid
+                    ? Enum_CommandType.SEND_TO_SERVER
+                    : Enum_CommandType.SEND_TO;
+                    
                 await SendAsync(new(
                     DateTime.Now,
                     Guid,
-                    new List<Guid>() { (Guid)selectedClient?.guid! },
-                    Enum_CommandType.SEND_TO,
+                    new List<Guid>() { receiver },
+                    command,
                     textToSend));
             }
             catch (SocketException ex)
@@ -186,9 +189,10 @@ namespace SocketClientServerLib
             Task task = e.Message.commandType switch
             {
                 Enum_CommandType.NEW_GUID => RegistrationHandle(e.Message.message),
-                (Enum_CommandType.INFO_FROM_SERVER | Enum_CommandType.LOG_IN) => LoginResponseError(e.Message),
                 Enum_CommandType.LOG_IN => LoginAccess(e.Message),
                 Enum_CommandType.SEND_TO => SendToHandle(e.Message),
+                Enum_CommandType.INFO_FROM_SERVER => InfoFromServer(e.Message),
+                Enum_CommandType.INFO_FROM_SERVER | Enum_CommandType.LOG_IN => LoginResponseError(e.Message),
                 Enum_CommandType.INFO_FROM_SERVER | Enum_CommandType.CLIENT_INVITE => Invite(e.Message),
                 Enum_CommandType.INFO_FROM_SERVER | Enum_CommandType.LOG_OUT => LogOut(e.Message),
                 _ => throw new NotImplementedException("Неизвестный тип команды")
@@ -202,7 +206,7 @@ namespace SocketClientServerLib
                 {
                     UserDTO user = new(guid, parts[0], true);
                     UserList!.Add(user);
-                    ResponseHandler.ClientInviteHandle(user); 
+                    ResponseHandler.ClientInviteHandle(user);
                 }
                 else
                     _logger.WritelineError("Unknown user");
@@ -238,6 +242,11 @@ namespace SocketClientServerLib
                 _logger.Writeline(message.ToString());
                 return Task.CompletedTask;
             }
+            Task InfoFromServer(MessageRecord message)
+            {
+                _logger.Writeline(message.ToString()); 
+                return Task.CompletedTask;
+            }
             async Task RegistrationHandle(string guid)
             {
                 if (Guid.TryParse(guid, out Guid g))
@@ -251,7 +260,6 @@ namespace SocketClientServerLib
                 _logger.Writeline("Registry is successfull");
             }
         }
-
 
     }
 }

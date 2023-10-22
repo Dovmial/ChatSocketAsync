@@ -172,7 +172,7 @@ namespace SocketClientServerLib
                     Enum_CommandType.SEND_TO => SendAsync(response, _guidSockets[response.receivers![0]]),
                     Enum_CommandType.SEND_TO_OTHER => SendToOtherBroadcastAsync(response, request.guidSender),
                     Enum_CommandType.SEND_TO_ALL => SendToAll(response),
-                    Enum_CommandType.SEND_TO_SERVER or
+                    Enum_CommandType.INFO_FROM_SERVER or
                     Enum_CommandType.INFO_FROM_SERVER | Enum_CommandType.LOG_IN => SendAsync(response, clientSocket),
                     Enum_CommandType.INFO_FROM_SERVER | Enum_CommandType.CLIENT_INVITE => LogInHandle(response, clientSocket),
 
@@ -235,8 +235,12 @@ namespace SocketClientServerLib
                 Enum_CommandType.REGISTRATION => Registration(message, userSocket),
                 Enum_CommandType.LOG_OUT => LogOut(message),
                 Enum_CommandType.LOG_IN => LogIn(message, userSocket),
-                Enum_CommandType.SEND_TO or
-                Enum_CommandType.SEND_TO_SERVER => SendTo(message),
+                Enum_CommandType.SEND_TO => SendTo(message),
+                Enum_CommandType.SEND_TO_SERVER => SendTo(message with 
+                {
+                    commandType = Enum_CommandType.INFO_FROM_SERVER,
+                    receivers = null
+                }),
                 _ => throw new NotImplementedException()
             };
         #endregion
@@ -357,11 +361,7 @@ namespace SocketClientServerLib
                 try
                 {
                     await db.BeginTransactionAsync();
-                    MessageModel mesMod = new()
-                    {
-                        Data = message.message,
-                        SenderGuid = message.guidSender
-                    };
+                    MessageModel mesMod = new(message.guidSender, message.timeStamp, message.message);
                     db.Add(mesMod);
                     db.SaveChanges();
                     foreach (Guid receiver in message.receivers!)
@@ -372,7 +372,7 @@ namespace SocketClientServerLib
                             UserReceiveGuid = receiver
                         });
                     }
-                    db.SaveChanges();
+                    await db.SaveChangesAsync();
                     await db.CommitTransactionAsync();
                 }
                 catch (Exception ex)

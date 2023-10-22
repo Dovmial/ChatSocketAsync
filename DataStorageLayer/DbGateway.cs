@@ -27,6 +27,7 @@ namespace DataStorageLayer
         public EntityEntry<T> Update<T>(T model) where T : class => _database.Update(model);
         public EntityEntry<T> Remove<T>(T model) where T : class => _database.Remove(model);
         public int SaveChanges() => _database.SaveChanges();
+        public Task<int> SaveChangesAsync() => _database.SaveChangesAsync();
         #endregion
 
         #region User
