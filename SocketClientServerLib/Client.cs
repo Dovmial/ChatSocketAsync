@@ -1,4 +1,5 @@
 ﻿
+using DataStorageLayer.Models;
 using SocketClientServerLib.DTOs;
 using SocketClientServerLib.Extensions;
 using SocketClientServerLib.Helpers;
@@ -117,6 +118,23 @@ namespace SocketClientServerLib
             }
         }
 
+        public async Task GetAllMessages()
+        {
+            if (IsConnected == false)
+            {
+                _logger.WritelineError("Нет связи с сервером");
+                return;
+            }
+
+            await SendAsync(new(
+               DateTime.Now,
+               Guid,
+               null,
+               Enum_CommandType.GET_HISTORY,
+               string.Empty),
+               _socketBase!);
+        }
+
         public override async Task SendAsync(MessageRecord message, Socket? clientSocket = null)
         {
             Socket s = clientSocket ?? _socketBase!;
@@ -144,7 +162,7 @@ namespace SocketClientServerLib
                 Enum_CommandType command = receiver == ServerGuid
                     ? Enum_CommandType.SEND_TO_SERVER
                     : Enum_CommandType.SEND_TO;
-                    
+
                 await SendAsync(new(
                     DateTime.Now,
                     Guid,
@@ -174,7 +192,7 @@ namespace SocketClientServerLib
         }
         public async Task LogIn(string login, string password, string name)
         {
-            
+
             _logger.Writeline("try authentification..");
             await SendAsync(new(
                 DateTime.Now,
@@ -195,6 +213,7 @@ namespace SocketClientServerLib
                 Enum_CommandType.INFO_FROM_SERVER | Enum_CommandType.LOG_IN => LoginResponseError(e.Message),
                 Enum_CommandType.INFO_FROM_SERVER | Enum_CommandType.CLIENT_INVITE => Invite(e.Message),
                 Enum_CommandType.INFO_FROM_SERVER | Enum_CommandType.LOG_OUT => LogOut(e.Message),
+                Enum_CommandType.INFO_FROM_SERVER | Enum_CommandType.GET_HISTORY => GetAllMessagesRecieve(e.Message),
                 _ => throw new NotImplementedException("Неизвестный тип команды")
             };
             await task;
@@ -244,7 +263,14 @@ namespace SocketClientServerLib
             }
             Task InfoFromServer(MessageRecord message)
             {
-                _logger.Writeline(message.ToString()); 
+                _logger.Writeline(message.ToString());
+                return Task.CompletedTask;
+            }
+            Task GetAllMessagesRecieve(MessageRecord message)
+            {
+                ReadOnlySpan<byte> buffer = new(Convert.FromBase64String(message.message));
+                List<MessageModel> messages = JsonSerializer.Deserialize<List<MessageModel>>(buffer)!;
+                ResponseHandler.ShowHistoryMessages(string.Join("\n\n", messages));
                 return Task.CompletedTask;
             }
             async Task RegistrationHandle(string guid)

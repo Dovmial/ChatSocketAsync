@@ -27,5 +27,7 @@ namespace DataStorageLayer.Models
             TimeStamp = timeStamp;
             Data = data;
         }
+
+        public override string ToString() => $"{TimeStamp} sender<{SenderGuid}>: {Data}";
     }
 }

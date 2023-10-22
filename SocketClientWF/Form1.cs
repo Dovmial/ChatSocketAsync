@@ -57,7 +57,8 @@ namespace SocketClientWF
                     _options.Guid = guid;
                     OptionsManager opManager = new();
                     return await opManager.SaveOptions(_options);
-                });
+                },
+                receiveHistoryAction: (string messagesList) => MessageBox.Show(messagesList)) ;
 
             _client = new(
                 Encoding.Unicode,
@@ -68,7 +69,7 @@ namespace SocketClientWF
         }
 
         #region События формы
-        private async void btnSend_Click(object sender, EventArgs e) 
+        private async void btnSend_Click(object sender, EventArgs e)
             => await _client.SendToAsync(_selectedClient, rtbMessage.Text);
         private async void btnConnect_Click(object sender, EventArgs e)
         {
@@ -144,5 +145,15 @@ namespace SocketClientWF
             rtbMain.Select(0, 0);
         });
         #endregion
+
+        private async void getAllMessagesToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if(_client.Guid == Guid.Empty)
+            {
+                WriteLineError("Клиент не зарегисрирован. Получите Guid");
+                return;
+            }
+            await _client.GetAllMessages();
+        }
     }
 }

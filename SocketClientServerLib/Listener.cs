@@ -165,7 +165,7 @@ namespace SocketClientServerLib
                 else
                     _logger.Writeline(request.ToString() ?? "???");
 
-                response = CreateResponse(request, clientSocket);
+                response = await CreateResponse(request, clientSocket);
                 Task task = response.commandType switch
                 {
                     Enum_CommandType.NEW_GUID => SendAsync(response, clientSocket),
@@ -175,7 +175,7 @@ namespace SocketClientServerLib
                     Enum_CommandType.INFO_FROM_SERVER or
                     Enum_CommandType.INFO_FROM_SERVER | Enum_CommandType.LOG_IN => SendAsync(response, clientSocket),
                     Enum_CommandType.INFO_FROM_SERVER | Enum_CommandType.CLIENT_INVITE => LogInHandle(response, clientSocket),
-
+                    Enum_CommandType.INFO_FROM_SERVER | Enum_CommandType.GET_HISTORY => GetMessagiesHandle(response, clientSocket),
                     _ => throw new NotImplementedException("Неизвестный тип команды")
                 };
                 await task;
@@ -206,8 +206,12 @@ namespace SocketClientServerLib
                 .ToArray();
             string usersBase64 = Convert.ToBase64String(JsonSerializer.SerializeToUtf8Bytes(users));
 
-            await SendAsync(message with { commandType = Enum_CommandType.LOG_IN, message = $"{usersBase64}" }, client);
+            await SendAsync(message with { commandType = Enum_CommandType.LOG_IN, message = usersBase64 }, client);
             await SendToOtherBroadcastAsync(message, guid);
+        }
+        private async Task GetMessagiesHandle(MessageRecord message, Socket client)
+        {
+            await SendAsync(message, client);
         }
         private void RemoveConnectionClient(Socket socketUser, Guid guid)
         {
@@ -229,9 +233,10 @@ namespace SocketClientServerLib
                 _guidSockets.Remove(guid);
             
         }
-        private MessageRecord CreateResponse(MessageRecord message, Socket userSocket)
+        private async Task<MessageRecord> CreateResponse(MessageRecord message, Socket userSocket)
             => message.commandType switch
             {
+                Enum_CommandType.GET_HISTORY => await GetHistory(message),
                 Enum_CommandType.REGISTRATION => Registration(message, userSocket),
                 Enum_CommandType.LOG_OUT => LogOut(message),
                 Enum_CommandType.LOG_IN => LogIn(message, userSocket),
@@ -334,6 +339,19 @@ namespace SocketClientServerLib
         }
 
         private MessageRecord SendTo(MessageRecord request) => request;
+
+        private async Task<MessageRecord> GetHistory(MessageRecord request)
+        {
+            using DbGateway db = new();
+            var messagies = await db.GetAllMessages_byUser(request.guidSender);
+            string messagiesBase64 = Convert.ToBase64String(JsonSerializer.SerializeToUtf8Bytes(messagies));
+            return new(
+                DateTime.Now,
+                Guid,
+                null,
+                Enum_CommandType.INFO_FROM_SERVER | Enum_CommandType.GET_HISTORY,
+                messagiesBase64);
+        }
         #endregion
 
         private void RemoveConnection()

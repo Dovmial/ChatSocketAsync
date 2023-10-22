@@ -15,5 +15,6 @@ namespace SocketClientServerLib.Helpers
         SEND_TO_SERVER = 128,
         SEND_TO_OTHER = 256,
         SEND_TO_ALL = 512,
+        GET_HISTORY = 1024,
     }
 }

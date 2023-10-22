@@ -9,5 +9,6 @@ namespace SocketClientServerLib.Interfaces
         void LoginAccessHandle(UserDTO[] usersOnline);
         void ClientInviteHandle(UserDTO user);
         void ClientLogOutHandle(UserDTO? userToLogout);
+        void ShowHistoryMessages(string messagiesList);
     }
 }

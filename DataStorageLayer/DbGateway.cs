@@ -3,6 +3,7 @@ using DataStorageLayer.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Storage;
+using System.Dynamic;
 
 namespace DataStorageLayer
 {
@@ -41,7 +42,16 @@ namespace DataStorageLayer
         #endregion
 
         #region Message
-
+        public async Task<List<MessageModel>> GetAllMessages_byUser(Guid guid)
+        {
+            //searching as sender and as receiver
+            var query = from mr in _database.MessageReceivers.AsNoTracking()
+                    join m in _database.Messages.AsNoTracking()
+                        on mr.MessageModelId equals m.Id
+                    where mr.UserReceiveGuid == guid || m.SenderGuid == guid
+                    select m;
+            return await query.ToListAsync();
+        }
         #endregion
 
         #region UserReceivers_Message

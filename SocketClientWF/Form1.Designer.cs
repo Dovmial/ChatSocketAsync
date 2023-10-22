@@ -39,6 +39,7 @@
             toolStripMenuItem1 = new ToolStripMenuItem();
             tsmiRegistration = new ToolStripMenuItem();
             optionsToolStripMenuItem = new ToolStripMenuItem();
+            getAllMessagesToolStripMenuItem = new ToolStripMenuItem();
             mainMenuStrip.SuspendLayout();
             SuspendLayout();
             // 
@@ -101,7 +102,7 @@
             // 
             // mainMenuStrip
             // 
-            mainMenuStrip.Items.AddRange(new ToolStripItem[] { AuthorizationToolStripMenuItem, optionsToolStripMenuItem });
+            mainMenuStrip.Items.AddRange(new ToolStripItem[] { AuthorizationToolStripMenuItem, optionsToolStripMenuItem, getAllMessagesToolStripMenuItem });
             mainMenuStrip.Location = new Point(0, 0);
             mainMenuStrip.Name = "mainMenuStrip";
             mainMenuStrip.Size = new Size(646, 24);
@@ -118,14 +119,14 @@
             // toolStripMenuItem1
             // 
             toolStripMenuItem1.Name = "toolStripMenuItem1";
-            toolStripMenuItem1.Size = new Size(137, 22);
+            toolStripMenuItem1.Size = new Size(180, 22);
             toolStripMenuItem1.Text = "Log In";
             toolStripMenuItem1.Click += LogInToolStripMenuItem_Click;
             // 
             // tsmiRegistration
             // 
             tsmiRegistration.Name = "tsmiRegistration";
-            tsmiRegistration.Size = new Size(137, 22);
+            tsmiRegistration.Size = new Size(180, 22);
             tsmiRegistration.Text = "Registration";
             tsmiRegistration.Click += tsmiRegistration_Click;
             // 
@@ -135,6 +136,13 @@
             optionsToolStripMenuItem.Size = new Size(61, 20);
             optionsToolStripMenuItem.Text = "Options";
             optionsToolStripMenuItem.Click += optionsToolStripMenuItem_Click;
+            // 
+            // getAllMessagesToolStripMenuItem
+            // 
+            getAllMessagesToolStripMenuItem.Name = "getAllMessagesToolStripMenuItem";
+            getAllMessagesToolStripMenuItem.Size = new Size(106, 20);
+            getAllMessagesToolStripMenuItem.Text = "Get all messages";
+            getAllMessagesToolStripMenuItem.Click += getAllMessagesToolStripMenuItem_Click;
             // 
             // Form1
             // 
@@ -170,5 +178,6 @@
         private ToolStripMenuItem toolStripMenuItem1;
         private ToolStripMenuItem tsmiRegistration;
         private ToolStripMenuItem optionsToolStripMenuItem;
+        private ToolStripMenuItem getAllMessagesToolStripMenuItem;
     }
 }
